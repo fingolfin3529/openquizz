@@ -14,6 +14,147 @@ class ViewController: UIViewController {
     @IBOutlet weak var activityIndicator: UIActivityIndicatorView!
     @IBOutlet weak var questionView: QuestionView!
     @IBOutlet weak var scoreLabel: UILabel!
+    @IBOutlet weak var gameOver: UILabel!
+  
+    
+    var game = Game()
+    
+    override func viewDidLoad() {
+        super.viewDidLoad()
+        let name = Notification.Name(rawValue: "QuestionsLoaded")
+        NotificationCenter.default.addObserver(self, selector: #selector(questionsLoaded), name: name, object: nil) // permet de se brancher sur la frequence radio
+        startNewGame()
+        
+        let panGestureRecognizer = UIPanGestureRecognizer(target: self, action: #selector(dragQuestionView(_:)))
+        questionView.addGestureRecognizer(panGestureRecognizer)
+        
+    }
+    
+   
+    func questionsLoaded() {
+        activityIndicator.isHidden = true
+        newGameButton.isHidden = false
+        questionView.title = game.currentQuestion.title
+        gameOver.isHidden = true
+        
+    }
+    
+    
+    @IBAction func didTapeNewGameButton() {
+        startNewGame()
+    }
+    
+    private func startNewGame() {
+        questionView.isHidden = false
+        scoreLabel.isHidden = false
+        activityIndicator.isHidden = false
+        newGameButton.isHidden = true
+        questionView.title = "Loading..."
+        questionView.style = .standard
+        scoreLabel.text = " 0 / 10"
+        gameOver.isHidden = true
+        game.refresh()
+        
+    }
+    func dragQuestionView(_ sender: UIPanGestureRecognizer){
+        if game.state == .ongoing{
+        switch sender.state {
+        case .began, .changed:
+            transformQuestionViewWith(gesture: sender)
+        case .cancelled, .ended:
+            answerQuestion()
+        default:
+            break
+        }
+    }
+    }
+    private func transformQuestionViewWith(gesture: UIPanGestureRecognizer){
+        let translation = gesture.translation(in: questionView) // recupere la translation faite par le doigt
+       let translationTransform =  CGAffineTransform(translationX: translation.x, y: translation.y) // creation de la transformation de la vue questionView par la translation faite par notre doigt
+        
+        
+        let screenWidth = UIScreen.main.bounds.width // recuperation de la taille de l'ecran
+        let translationPercent = translation.x/(screenWidth/2) // calcule de ou j'en suis par rapport au bord de l'ecran entre -100% et +100%
+        let rotationAngle = (CGFloat.pi / 6) * translationPercent // determine la bonne inclinaision en fonction du pourcentage de deplacement
+        
+        let rotationTransform = CGAffineTransform(rotationAngle: rotationAngle) //creation de la transformation rotation
+        
+        let transform = translationTransform.concatenating(rotationTransform) // transformation finale avec la translation et la rotation
+        questionView.transform = transform
+        
+        if translation.x > 0 {
+            questionView.style = .correct
+        }else {
+            questionView.style = .incorrect
+        }
+    }
+    private func answerQuestion(){
+        switch questionView.style {
+        case .correct:
+            game.answerCurrentQuestion(with: true)
+        case .incorrect:
+            game.answerCurrentQuestion(with: false)
+        case .standard:
+            break
+        }
+        scoreLabel.transform = CGAffineTransform(scaleX: 0.01, y: 0.01)
+        scoreLabel.text = "\(game.score) / 10"
+        
+        let screenWidth = UIScreen.main.bounds.width
+        var translationTransfrom: CGAffineTransform
+        if questionView.style == .correct {
+            translationTransfrom = CGAffineTransform(translationX: screenWidth, y: 0)
+        } else {
+            translationTransfrom = CGAffineTransform(translationX: -screenWidth, y: 0)
+        }
+        
+        UIView.animate(withDuration: 0.3, animations: {
+            self.questionView.transform = translationTransfrom
+        }) { (success) in
+            if success {
+                self.showQuestionView()
+            }
+        }
+    }
+    private func showQuestionView() {
+        questionView.transform = .identity
+        questionView.transform = CGAffineTransform(scaleX: 0.01, y: 0.01)
+        
+        questionView.style = .standard
+        questionView.title = game.currentQuestion.title
+        
+        switch game.state {
+        case .ongoing:
+            questionView.title = game.currentQuestion.title
+        case .over:
+            questionView.isHidden = true
+            gameOver.isHidden = false
+            gameOver.text = " Game Over: Your score is \(game.score) / 10"
+            scoreLabel.isHidden = true
+        }
+        
+        UIView.animate(withDuration: 0.4, delay: 0,usingSpringWithDamping: 0.5, initialSpringVelocity: 0.5, options: [], animations: {
+            self.questionView.transform = .identity
+            self.scoreLabel.transform = .identity
+        }, completion: nil)
+    }
+}
+//
+//  ViewController.swift
+//  OpenQuizz
+//
+//  Created by stephane verardo on 08/09/2017.
+//  Copyright © 2017 stephane verardo. All rights reserved.
+//
+
+import UIKit
+
+class ViewController: UIViewController {
+
+    @IBOutlet weak var newGameButton: UIButton!
+    @IBOutlet weak var activityIndicator: UIActivityIndicatorView!
+    @IBOutlet weak var questionView: QuestionView!
+    @IBOutlet weak var scoreLabel: UILabel!
 
    var game = Game()
     
